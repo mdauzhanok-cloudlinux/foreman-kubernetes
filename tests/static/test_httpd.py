@@ -206,6 +206,12 @@ def test_pulp_routes_only_with_pulp(render):
     for path in PULP_PATHS:
         assert path in ssl, path
     assert "http://foreman-foreman-pulp-api:24817/pulp/api/v3 timeout=600" in ssl
+    # Worker sharing: a ProxyPass to the bare API URL placed before
+    # /pulp/api/v3 decides the timeout for both.
+    api = "http://foreman-foreman-pulp-api:24817"
+    bare = [line.split() for line in ssl[:ssl.index(api + "/pulp/api/v3 ")].splitlines()
+            if line.split()[:1] == ["ProxyPass"] and api in line.split()[1:3]]
+    assert bare and all("timeout=600" in words for words in bare), bare
     assert "http://foreman-foreman-pulp-content:24816/pulp/content disablereuse=on timeout=600" in ssl
     plain = config(manifests, "foreman.conf")
     assert "/pulp/content" in plain and "/pulp/api/v3" not in plain

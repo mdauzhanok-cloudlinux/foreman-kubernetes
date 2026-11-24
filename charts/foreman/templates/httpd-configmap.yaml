@@ -101,9 +101,12 @@ data:
       ProxyPass /pulp_ansible/galaxy/ {{ $api }}/pulp_ansible/galaxy/
       ProxyPassReverse /pulp_ansible/galaxy/ {{ $api }}/pulp_ansible/galaxy/
 
+      # First ProxyPass to the bare Pulp API URL. Apache reuses its worker for
+      # /pulp/api/v3 and ignores the parameters given there (worker sharing),
+      # so the timeout has to be set here too.
       <Location "/pulpcore_registry">
         {{- include "httpd.pulpRemoteUser" . | trim | nindent 8 }}
-        ProxyPass {{ $api }}
+        ProxyPass {{ $api }} timeout=600
         ProxyPassReverse {{ $api }}
       </Location>
 

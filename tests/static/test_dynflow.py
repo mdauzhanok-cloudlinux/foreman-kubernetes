@@ -11,7 +11,7 @@ from test_render import (
 
 ENABLED = {"dynflow": {"enabled": True}}
 PREFIX = f"{FULLNAME}-dynflow-"
-SIDEKIQ = ["sidekiq", "-e", "production", "-r", "./extras/dynflow-sidekiq.rb", "-C"]
+SIDEKIQ = ["sidekiq", "-e", "production", "-r", "./extras/dynflow-sidekiq.rb"]
 PROBE = ["grep", "-qF", "busy]", "/proc/1/cmdline"]
 
 
@@ -47,11 +47,11 @@ def enabled(render):
 def test_enabled_renders_three_deployments(enabled):
     deployments = dynflow(enabled)
     assert deployments.keys() == {"orchestrator", "worker", "worker-hosts-queue"}
-    configs = {}
+    arguments = {}
     for name, deployment in deployments.items():
         (container,) = pod_spec(deployment)["containers"]
-        assert container["command"][:-1] == SIDEKIQ, name
-        configs[name] = container["command"][-1]
+        assert container["command"][:len(SIDEKIQ)] == SIDEKIQ, name
+        arguments[name] = container["command"][len(SIDEKIQ):]
         assert container["image"] == "quay.io/foreman/foreman:5.0"
         assert container["workingDir"] == "/usr/share/foreman"
         for probe in ("startupProbe", "readinessProbe", "livenessProbe"):
@@ -61,10 +61,11 @@ def test_enabled_renders_three_deployments(enabled):
         labels = deployment["spec"]["template"]["metadata"]["labels"]
         assert labels["app.kubernetes.io/component"] == f"dynflow-{name}"
         assert deployment["spec"]["selector"]["matchLabels"].items() <= labels.items()
-    assert configs == {
-        "orchestrator": "/etc/foreman/dynflow/orchestrator.yml",
-        "worker": "/etc/foreman/dynflow/worker.yml",
-        "worker-hosts-queue": "/etc/foreman/dynflow/worker.yml",
+    # worker.yml in the image is static, so workers name their queues.
+    assert arguments == {
+        "orchestrator": ["-C", "/etc/foreman/dynflow/orchestrator.yml"],
+        "worker": ["-c", "10", "-q", "default", "-q", "remote_execution"],
+        "worker-hosts-queue": ["-c", "5", "-q", "hosts_queue"],
     }
 
 
@@ -85,12 +86,18 @@ def test_queues_and_concurrency_come_from_values(render):
         "worker": (3, "default,custom@2", "7", "12"),
         "worker-hosts-queue": (2, "hosts_queue", "4", "9"),
     }
+    commands = {
+        "orchestrator": ["-C", "/etc/foreman/dynflow/orchestrator.yml"],
+        "worker": ["-c", "7", "-q", "default", "-q", "custom@2"],
+        "worker-hosts-queue": ["-c", "4", "-q", "hosts_queue"],
+    }
     for name, deployment in dynflow(manifests).items():
         (container,) = pod_spec(deployment)["containers"]
         variables = env(container)
         queues = variables.get("FOREMAN_DYNFLOW_QUEUES", {}).get("value")
         replicas, *rest = expected[name]
         assert deployment["spec"]["replicas"] == replicas, name
+        assert container["command"][len(SIDEKIQ):] == commands[name], name
         assert [queues, variables["FOREMAN_DYNFLOW_CONCURRENCY"]["value"],
                 variables["FOREMAN_DATABASE_POOL"]["value"]] == rest, name
 

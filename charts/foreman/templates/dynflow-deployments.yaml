@@ -1,8 +1,9 @@
 {{- if .Values.dynflow.enabled }}
 {{- /*
-Three Sidekiq processes run Dynflow, with the command foremanctl uses. The
-image ships /etc/foreman/dynflow/orchestrator.yml and worker.yml as ERB
-templates that read FOREMAN_DYNFLOW_QUEUES and FOREMAN_DYNFLOW_CONCURRENCY.
+Three Sidekiq processes run Dynflow. The orchestrator uses the image's
+orchestrator.yml. The workers take queues and concurrency as arguments:
+worker.yml in the image is static (default, remote_execution, concurrency 10)
+and ignores FOREMAN_DYNFLOW_QUEUES and FOREMAN_DYNFLOW_CONCURRENCY.
 */}}
 {{- $root := . }}
 {{- $d := .Values.dynflow }}
@@ -78,8 +79,17 @@ spec:
             - production
             - -r
             - ./extras/dynflow-sidekiq.rb
+            {{- if .queues }}
+            - -c
+            - {{ .concurrency | quote }}
+            {{- range .queues }}
+            - -q
+            - {{ . | quote }}
+            {{- end }}
+            {{- else }}
             - -C
             - /etc/foreman/dynflow/{{ .config }}.yml
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

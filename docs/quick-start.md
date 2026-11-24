@@ -218,6 +218,9 @@ Foreman runs background tasks with Dynflow in Sidekiq processes. Set
 | `<release>-foreman-dynflow-worker` | `dynflow.worker.queues` | `dynflow.worker.replicas` |
 | `<release>-foreman-dynflow-worker-hosts-queue` | `hosts_queue` | `dynflow.hostsQueue.replicas` |
 
+The workers get their queues and concurrency as Sidekiq arguments (`-q`,
+`-c`). Katello computes the applicable updates of hosts in `hosts_queue`.
+
 The orchestrator assigns tasks to the workers, and only one can be active at a
 time, so it always has one replica and is replaced, not rolled, on upgrade.
 Enabling Dynflow also enables the Foreman Tasks plugin (`foreman-tasks`) in
