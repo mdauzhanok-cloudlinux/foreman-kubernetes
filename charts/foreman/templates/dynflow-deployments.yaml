@@ -53,6 +53,7 @@ spec:
         runAsUser: 994
         seccompProfile:
           type: RuntimeDefault
+      {{- with include "foreman.lostNodeTolerations" $root }}{{ . | nindent 6 }}{{ end }}
       {{- with $root.Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
