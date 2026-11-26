@@ -90,10 +90,13 @@ spec:
             timeoutSeconds: 10
             failureThreshold: 3
             {{- else }}
-            tcpSocket:
+            # Not the TCP port: with Valkey gone without a reset (its node lost)
+            # the API kept the port open while this endpoint hung for minutes.
+            httpGet:
+              path: {{ .probePath }}
               port: http
             periodSeconds: 20
-            timeoutSeconds: 5
+            timeoutSeconds: 10
             failureThreshold: 6
             {{- end }}
           {{- end }}

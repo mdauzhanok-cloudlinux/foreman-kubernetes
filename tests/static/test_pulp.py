@@ -223,7 +223,9 @@ def test_services_and_probes(pulp):
                 "an unreachable database must pass"
             assert liveness["timeoutSeconds"] >= 5
         else:
-            assert liveness["tcpSocket"] == {"port": "http"}
+            # The status endpoint: an open port says nothing about a hung API.
+            assert liveness["httpGet"] == {"path": path, "port": "http"}
+            assert liveness["periodSeconds"] * liveness["failureThreshold"] >= 120
 
 
 def test_selectors_do_not_overlap(pulp):
